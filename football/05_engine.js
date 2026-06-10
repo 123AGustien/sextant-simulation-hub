@@ -1,57 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Triangle Football Lab v4 (Fail-Safe)</title>
+let canvas = document.getElementById("pitch");
+let ctx = canvas.getContext("2d");
 
-  <style>
-    body {
-      margin: 0;
-      background: #0b3d0b;
-      color: white;
-      font-family: Arial;
-      text-align: center;
-    }
-
-    canvas {
-      background: #1e7f1e;
-      border: 3px solid white;
-      display: block;
-      margin: auto;
-    }
-
-    .ui {
-      margin: 10px;
-    }
-
-    button {
-      padding: 8px 14px;
-      margin: 5px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-
-<body>
-
-<h1>Triangle Football Lab v4</h1>
-
-<div class="ui">
-  Blue: <span id="blueScore">0</span> |
-  Red: <span id="redScore">0</span>
-</div>
-
-<button onclick="safeStart()">Start</button>
-<button onclick="safeReset()">Reset</button>
-
-<canvas id="pitch" width="900" height="500"></canvas>
-
-<script>
-"use strict";
-
-// =========================
-// SAFE ENGINE WRAPPER
-// =========================
-let canvas, ctx;
 let blueTeam = [];
 let redTeam = [];
 let ball;
@@ -59,255 +8,228 @@ let ball;
 let blueScore = 0;
 let redScore = 0;
 
-let running = false;
-let loopStarted = false;
+// ======================= BALL STATE =======================
+let ballVx = 0;
+let ballVy = 0;
+let ballInTransit = false;
+let passTarget = null;
 
-// =========================
-// SAFE INIT (NO FAIL)
-// =========================
-function safeInit() {
-  canvas = document.getElementById("pitch");
+// ======================= TEAM INTENT STATES =======================
+const STATE = {
+  ATTACK: "attack",
+  DEFEND: "defend",
+  BALANCE: "balance"
+};
 
-  if (!canvas) {
-    console.error("Canvas missing - retrying...");
-    setTimeout(safeInit, 200);
-    return;
-  }
+let blueState = STATE.BALANCE;
+let redState = STATE.BALANCE;
 
-  ctx = canvas.getContext("2d");
-
+// ======================= INIT =======================
+function init() {
   blueTeam = [
-    new Player(200, 200, "blue"),
-    new Player(200, 250, "blue"),
-    new Player(200, 300, "blue")
+    new Player(200, 250, "blue", "mid"),
+    new Player(200, 200, "blue", "def"),
+    new Player(200, 300, "blue", "str")
   ];
 
   redTeam = [
-    new Player(700, 200, "red"),
-    new Player(700, 250, "red"),
-    new Player(700, 300, "red")
+    new Player(700, 250, "red", "mid"),
+    new Player(700, 200, "red", "def"),
+    new Player(700, 300, "red", "str")
   ];
 
   ball = new Ball();
-  ball.attach(blueTeam[0]);
+  ball.owner = blueTeam[0];
 }
 
-// =========================
-// PLAYER
-// =========================
-class Player {
-  constructor(x, y, team) {
-    this.x = x;
-    this.y = y;
-    this.team = team;
-  }
-
-  move(tx, ty) {
-    this.x += (tx - this.x) * 0.06;
-    this.y += (ty - this.y) * 0.06;
-  }
-}
-
-// =========================
-// BALL
-// =========================
-class Ball {
-  constructor() {
-    this.x = 450;
-    this.y = 250;
-    this.owner = null;
-  }
-
-  attach(p) {
-    this.owner = p;
-  }
-
-  update() {
-    if (this.owner) {
-      this.x = this.owner.x;
-      this.y = this.owner.y;
-    }
-  }
-}
-
-// =========================
-// SAFE DISTANCE
-// =========================
-function dist(a, b) {
+// ======================= DIST =======================
+function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-// =========================
-// TRIAL MANOEUVRE (SAFE)
-// =========================
-function blueTactic() {
-  let carrier = ball.owner || blueTeam[0];
-
-  blueTeam[0].move(carrier.x, carrier.y);
-
-  blueTeam[1].move(carrier.x + 60, carrier.y - 40);
-  blueTeam[2].move(carrier.x + 60, carrier.y + 40);
+// ======================= GAME STATE DETECTION =======================
+function updateTeamStates() {
+  if (ball.x < 300) {
+    blueState = STATE.ATTACK;
+    redState = STATE.DEFEND;
+  } else if (ball.x > 600) {
+    blueState = STATE.DEFEND;
+    redState = STATE.ATTACK;
+  } else {
+    blueState = STATE.BALANCE;
+    redState = STATE.BALANCE;
+  }
 }
 
-function redTactic() {
-  let closest = redTeam.reduce((a, b) =>
-    dist(b, ball) < dist(a, ball) ? b : a
-  );
+// ======================= PRESSURE =======================
+function pressure(player, opponents) {
+  let p = 0;
+  opponents.forEach(o => {
+    let d = distance(player, o);
+    if (d < 90) p += (90 - d);
+  });
+  return p;
+}
 
-  closest.move(ball.x, ball.y);
+// ======================= PASS AI =======================
+function choosePass(team, opponents) {
+  let carrier = ball.owner;
+  if (!carrier) return null;
 
-  redTeam.forEach(p => {
-    if (p !== closest) {
-      p.move(ball.x + 40, ball.y + 20);
+  let best = null;
+  let bestScore = -999;
+
+  team.forEach(p => {
+    if (p === carrier) return;
+
+    let d = distance(carrier, p);
+    let pr = pressure(p, opponents);
+
+    let score = (150 - d) - pr * 0.7;
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = p;
+    }
+  });
+
+  return best;
+}
+
+// ======================= PASS =======================
+function passBall(from, to) {
+  let dx = to.x - from.x;
+  let dy = to.y - from.y;
+  let mag = Math.hypot(dx, dy);
+
+  ballVx = (dx / mag) * 7.5;
+  ballVy = (dy / mag) * 7.5;
+
+  ball.owner = null;
+  ballInTransit = true;
+  passTarget = to;
+}
+
+// ======================= STRATEGIC FORMATIONS =======================
+function applyStrategy(team, state, side) {
+
+  let baseX = side === "blue" ? 200 : 700;
+
+  team.forEach(p => {
+
+    // DEFENSIVE SHIFT
+    if (state === STATE.DEFEND) {
+      if (p.role === "def") p.move(baseX, 150);
+      if (p.role === "mid") p.move(baseX + (side === "blue" ? 50 : -50), 250);
+      if (p.role === "str") p.move(baseX + (side === "blue" ? 100 : -100), 350);
+    }
+
+    // ATTACK SHIFT
+    if (state === STATE.ATTACK) {
+      if (p.role === "def") p.move(baseX + (side === "blue" ? 50 : -50), 200);
+      if (p.role === "mid") p.move(baseX + (side === "blue" ? 150 : -150), 250);
+      if (p.role === "str") p.move(baseX + (side === "blue" ? 250 : -250), 300);
+    }
+
+    // BALANCED SHAPE
+    if (state === STATE.BALANCE) {
+      if (p.role === "def") p.move(baseX, 180);
+      if (p.role === "mid") p.move(baseX, 250);
+      if (p.role === "str") p.move(baseX, 320);
     }
   });
 }
 
-// =========================
-// SAFE UPDATE (NO CRASH)
-// =========================
-function update() {
-  try {
-    blueTactic();
-    redTactic();
+// ======================= INTERCEPTION PREDICTION =======================
+function predictBall() {
+  if (!ballInTransit) return;
 
-    ball.update();
+  let futureX = ball.x + ballVx * 10;
+  let futureY = ball.y + ballVy * 10;
 
-    [...blueTeam, ...redTeam].forEach(p => {
-      if (dist(p, ball) < 14) {
-        ball.attach(p);
-      }
-    });
-
-    if (ball.x > 880) goal("blue");
-    if (ball.x < 20) goal("red");
-
-  } catch (e) {
-    console.error("Update error:", e);
-  }
+  return { x: futureX, y: futureY };
 }
 
-// =========================
-// SAFE DRAW (GUARANTEED RENDER)
-// =========================
-function draw() {
-  if (!ctx) return;
+// ======================= UPDATE =======================
+function update() {
 
+  updateTeamStates();
+
+  applyStrategy(blueTeam, blueState, "blue");
+  applyStrategy(redTeam, redState, "red");
+
+  let opponents = ball.owner?.team === "blue" ? redTeam : blueTeam;
+
+  // PASS LOGIC
+  if (ball.owner && !ballInTransit) {
+    let team = ball.owner.team === "blue" ? blueTeam : redTeam;
+    let target = choosePass(team, opponents);
+
+    if (target) passBall(ball.owner, target);
+  }
+
+  // BALL PHYSICS
+  if (ballInTransit) {
+    ball.x += ballVx;
+    ball.y += ballVy;
+
+    ballVx *= 0.97;
+    ballVy *= 0.97;
+
+    if (passTarget && distance(ball, passTarget) < 10) {
+      ball.owner = passTarget;
+      ballInTransit = false;
+      passTarget = null;
+    }
+  }
+
+  // POSSESSION
+  [...blueTeam, ...redTeam].forEach(p => {
+    if (distance(p, ball) < 12 && !ballInTransit) {
+      ball.owner = p;
+    }
+  });
+
+  // GOALS
+  if (ball.x > 880) goal("blue");
+  if (ball.x < 20) goal("red");
+}
+
+// ======================= DRAW =======================
+function draw() {
   ctx.clearRect(0, 0, 900, 500);
 
-  // pitch
-  ctx.fillStyle = "#1e7f1e";
-  ctx.fillRect(0, 0, 900, 500);
-
-  // center line
-  ctx.strokeStyle = "white";
+  ctx.fillStyle = "white";
   ctx.beginPath();
-  ctx.moveTo(450, 0);
-  ctx.lineTo(450, 500);
-  ctx.stroke();
-
-  // ball (always visible)
-  if (ball) {
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.arc(ball.x, ball.y, 5, 0, Math.PI * 2);
+  ctx.fill();
 
   drawTeam(blueTeam, "blue");
   drawTeam(redTeam, "red");
 }
 
-// =========================
-// TEAM DRAW SAFE
-// =========================
-function drawTeam(team, color) {
-  if (!team) return;
-
-  ctx.fillStyle = color;
-
-  team.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
-    ctx.fill();
-  });
-}
-
-// =========================
-// GOAL SAFE
-// =========================
+// ======================= GOAL =======================
 function goal(team) {
   if (team === "blue") blueScore++;
   if (team === "red") redScore++;
 
-  const b = document.getElementById("blueScore");
-  const r = document.getElementById("redScore");
-
-  if (b) b.innerText = blueScore;
-  if (r) r.innerText = redScore;
-
-  safeInit();
+  init();
 }
 
-// =========================
-// LOOP GUARANTEE (SELF-HEALING)
-// =========================
-function loop() {
-  if (!running) return;
-
-  update();
-  draw();
-
-  requestAnimationFrame(loop);
+// ======================= LOOP =======================
+function startMatch() {
+  init();
+  loop();
 }
 
-// =========================
-// SAFE START (MULTI-GUARD)
-// =========================
-function safeStart() {
-  running = true;
-
-  if (!loopStarted) {
-    loopStarted = true;
-    safeInit();
-    loop();
-  } else {
-    safeInit();
-  }
-}
-
-// =========================
-// SAFE RESET
-// =========================
-function safeReset() {
+function resetMatch() {
   blueScore = 0;
   redScore = 0;
-
-  const b = document.getElementById("blueScore");
-  const r = document.getElementById("redScore");
-
-  if (b) b.innerText = 0;
-  if (r) r.innerText = 0;
-
-  safeInit();
+  init();
 }
 
-// =========================
-// AUTO START FAILSAFE
-// =========================
-window.onload = () => {
-  safeStart();
-};
-
-// extra safety net
-setTimeout(() => {
-  if (!loopStarted) {
-    console.warn("Auto recovery triggered");
-    safeStart();
-  }
-}, 1000);
-
-</script>
-
-</body>
-</html>
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
