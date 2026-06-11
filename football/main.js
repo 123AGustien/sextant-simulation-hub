@@ -8,13 +8,13 @@ const Game = {
   blueScore: 0,
   redScore: 0,
   running: false,
-  animationId: null,
 
   start() {
-    if (this.running) return;
+    if (this.running) return; // prevent double start
 
     this.running = true;
     Engine.init();
+    loop();
   },
 
   reset() {
@@ -23,13 +23,6 @@ const Game = {
 
     document.getElementById("blueScore").innerText = 0;
     document.getElementById("redScore").innerText = 0;
-
-    this.running = false;
-
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId);
-      this.animationId = null;
-    }
 
     Engine.init();
   },
@@ -52,12 +45,6 @@ const Engine = {
 
   init() {
     World.init433();
-
-    if (!Game.running) {
-      Game.running = true;
-    }
-
-    loop();
   },
 
   update() {
@@ -93,7 +80,7 @@ const Engine = {
 };
 
 // =====================
-// MAIN LOOP (SAFE)
+// LOOP (SINGLE CONTROLLED LOOP)
 // =====================
 function loop() {
   if (!Game.running) return;
@@ -101,12 +88,12 @@ function loop() {
   Engine.update();
   Engine.draw();
 
-  Game.animationId = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 }
 
 // =====================
-// AUTO START (SAFE)
+// AUTO INIT (SAFE)
 // =====================
 window.onload = () => {
-  Game.start();
+  Engine.init();
 };
