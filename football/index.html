@@ -20,37 +20,80 @@
 <script>
 
 // =====================
-// SAFE WORLD INIT
+// CANVAS
 // =====================
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
 // =====================
-// WORLD
+// WORLD (22 PLAYERS FIX)
 // =====================
 const World = {
+
   players: [
-    {x:100,y:200}, {x:200,y:300}, {x:300,y:200}
+
+    // 🔵 BLUE TEAM (11)
+    {x:100,y:80,team:"blue"},
+    {x:100,y:140,team:"blue"},
+    {x:100,y:200,team:"blue"},
+    {x:100,y:260,team:"blue"},
+    {x:100,y:320,team:"blue"},
+
+    {x:220,y:100,team:"blue"},
+    {x:220,y:200,team:"blue"},
+    {x:220,y:300,team:"blue"},
+
+    {x:340,y:150,team:"blue"},
+    {x:340,y:250,team:"blue"},
+    {x:340,y:350,team:"blue"},
+
+    // 🔴 RED TEAM (11)
+    {x:800,y:80,team:"red"},
+    {x:800,y:140,team:"red"},
+    {x:800,y:200,team:"red"},
+    {x:800,y:260,team:"red"},
+    {x:800,y:320,team:"red"},
+
+    {x:680,y:100,team:"red"},
+    {x:680,y:200,team:"red"},
+    {x:680,y:300,team:"red"},
+
+    {x:560,y:150,team:"red"},
+    {x:560,y:250,team:"red"},
+    {x:560,y:350,team:"red"}
+
   ],
+
   ball: {
-    x:450, y:250,
+    x:450,
+    y:250,
+    vx:0,
+    vy:0,
     owner:null,
 
     update() {
       if (this.owner) {
         this.x = this.owner.x;
         this.y = this.owner.y;
-      }
-    },
+      } else {
+        this.x += this.vx;
+        this.y += this.vy;
 
-    attach(p) {
-      this.owner = p;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+      }
     },
 
     reset() {
       this.x = 450;
       this.y = 250;
+      this.vx = 0;
+      this.vy = 0;
       this.owner = null;
+    },
+
+    attach(p) {
+      this.owner = p;
     }
   }
 };
@@ -63,6 +106,7 @@ const Game = {
   red:0,
 
   goal(team){
+
     if(team==="blue") Game.blue++;
     if(team==="red") Game.red++;
 
@@ -74,7 +118,7 @@ const Game = {
 };
 
 // =====================
-// PHYSICS ENGINE
+// PHYSICS
 // =====================
 const Physics = {
 
@@ -83,28 +127,28 @@ const Physics = {
   update(){
 
     const ball = World.ball;
-    if(!ball) return;
 
     ball.update();
 
+    // POSSESSION SYSTEM
     World.players.forEach(p=>{
 
       const dx = p.x - ball.x;
       const dy = p.y - ball.y;
       const dist = Math.hypot(dx,dy);
 
-      // pickup
+      // pick up ball
       if(dist < 14 && !ball.owner){
         ball.attach(p);
       }
 
-      // release safety
+      // release ball
       if(ball.owner === p && dist > 25){
         ball.owner = null;
       }
     });
 
-    // GOAL LOGIC (SAFE LOCK)
+    // GOALS
     if(!Physics.goalLocked){
 
       if(ball.x > 880){
@@ -123,7 +167,7 @@ const Physics = {
 };
 
 // =====================
-// RENDER SYSTEM
+// RENDER
 // =====================
 function draw(){
 
@@ -131,9 +175,10 @@ function draw(){
 
   // players
   World.players.forEach(p=>{
-    ctx.fillStyle="cyan";
+    ctx.fillStyle = p.team === "blue" ? "cyan" : "red";
+
     ctx.beginPath();
-    ctx.arc(p.x,p.y,10,0,Math.PI*2);
+    ctx.arc(p.x,p.y,8,0,Math.PI*2);
     ctx.fill();
   });
 
@@ -145,35 +190,30 @@ function draw(){
 }
 
 // =====================
-// GAME LOOP (STABLE)
+// LOOP
 // =====================
 let running = false;
-let loopId = null;
 
 function loop(){
+
   if(!running) return;
 
   Physics.update();
   draw();
 
-  loopId = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 }
 
 // =====================
 // CONTROLS
 // =====================
 function startGame(){
-
   if(running) return;
-
   running = true;
   loop();
-
-  console.log("⚽ Engine started");
 }
 
 function resetGame(){
-
   Game.blue = 0;
   Game.red = 0;
 
@@ -181,8 +221,6 @@ function resetGame(){
   document.getElementById("red").innerText = 0;
 
   World.ball.reset();
-
-  console.log("🔄 Game reset");
 }
 
 </script>
