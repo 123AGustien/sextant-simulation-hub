@@ -81,7 +81,7 @@ const Engine = {
 };
 
 // =====================
-// LOOP
+// LOOP (CONTROLLED RUNTIME)
 // =====================
 function loop() {
   if (!Game.running) return;
@@ -93,15 +93,14 @@ function loop() {
 }
 
 // =====================
-// BOOT
+// BOOTSTRAP
 // =====================
 window.onload = () => {
-  Engine.init();     // setup only
-  Game.running = false;
+  Engine.init();
 };
 
 // =====================
-// GLOBAL EXPORT (CRITICAL FOR BUTTONS)
+// GLOBAL EXPORT
 // =====================
 window.Game = Game;
 window.Engine = Engine;
