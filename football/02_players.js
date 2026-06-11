@@ -1,8 +1,3 @@
-// =====================
-// FOOTBALL PHYSICS ENGINE
-// =====================
-
-// ---------- PLAYER ----------
 class Player {
   constructor(x, y, team) {
     this.x = x;
@@ -16,6 +11,9 @@ class Player {
     this.ay = 0;
 
     this.maxSpeed = 3;
+    this.maxForce = 0.25;
+
+    this.radius = 10;
   }
 
   seek(tx, ty) {
@@ -31,38 +29,35 @@ class Player {
     let desiredVx = dx * this.maxSpeed;
     let desiredVy = dy * this.maxSpeed;
 
-    // steering force (smooth AI)
     this.ax += (desiredVx - this.vx) * 0.12;
     this.ay += (desiredVy - this.vy) * 0.12;
   }
 
-  update() {
-    // apply acceleration
+  update(width, height) {
     this.vx += this.ax;
     this.vy += this.ay;
 
-    // grass friction
     this.vx *= 0.90;
     this.vy *= 0.90;
 
-    // speed cap
     const speed = Math.hypot(this.vx, this.vy);
     if (speed > this.maxSpeed) {
       this.vx = (this.vx / speed) * this.maxSpeed;
       this.vy = (this.vy / speed) * this.maxSpeed;
     }
 
-    // move
     this.x += this.vx;
     this.y += this.vy;
 
-    // reset acceleration
+    // field boundaries
+    this.x = Math.max(this.radius, Math.min(width - this.radius, this.x));
+    this.y = Math.max(this.radius, Math.min(height - this.radius, this.y));
+
     this.ax = 0;
     this.ay = 0;
   }
 }
 
-// ---------- BALL ----------
 class Ball {
   constructor(x = 450, y = 250) {
     this.x = x;
@@ -72,10 +67,14 @@ class Ball {
     this.vy = 0;
 
     this.owner = null;
+
+    this.radius = 6;
   }
 
   attach(player) {
     this.owner = player;
+    this.vx = 0;
+    this.vy = 0;
   }
 
   detach() {
@@ -83,92 +82,119 @@ class Ball {
   }
 
   kick(vx, vy) {
+    this.owner = null;
     this.vx = vx;
     this.vy = vy;
-    this.owner = null;
   }
 
-  update() {
-    // follow player if in possession
+  update(width, height) {
     if (this.owner) {
+      // ball sticks to player (possession)
       this.x = this.owner.x;
       this.y = this.owner.y;
       return;
     }
 
-    // free ball physics
+    // movement
     this.x += this.vx;
     this.y += this.vy;
 
-    // friction (ball slows naturally)
-    this.vx *= 0.98;
-    this.vy *= 0.98;
+    // friction (grass + air resistance)
+    this.vx *= 0.985;
+    this.vy *= 0.985;
+
+    // bounce walls
+    if (this.x < this.radius || this.x > width - this.radius) {
+      this.vx *= -0.7;
+      this.x = Math.max(this.radius, Math.min(width - this.radius, this.x));
+    }
+
+    if (this.y < this.radius || this.y > height - this.radius) {
+      this.vy *= -0.7;
+      this.y = Math.max(this.radius, Math.min(height - this.radius, this.y));
+    }
+  }
+
+  checkPickup(players) {
+    if (this.owner) return;
+
+    for (let p of players) {
+      let dx = p.x - this.x;
+      let dy = p.y - this.y;
+      let dist = Math.hypot(dx, dy);
+
+      if (dist < p.radius + this.radius) {
+        this.attach(p);
+        break;
+      }
+    }
   }
 }
 
-// =====================
-// SIMPLE GAME SETUP
-// =====================
+// ---------------- MATCH ENGINE ----------------
+
+class Match {
+  constructor(width, height) {
+    this.width = width;
+    this.height = height;
+
+    this.players = [];
+    this.ball = new Ball();
+  }
+
+  addPlayer(p) {
+    this.players.push(p);
+  }
+
+  update() {
+    // simple AI: players chase ball
+    for (let p of this.players) {
+      if (!this.ball.owner || this.ball.owner !== p) {
+        p.seek(this.ball.x, this.ball.y);
+      }
+
+      p.update(this.width, this.height);
+    }
+
+    // ball logic
+    this.ball.checkPickup(this.players);
+    this.ball.update(this.width, this.height);
+
+    // kick logic (auto demo)
+    if (this.ball.owner) {
+      let p = this.ball.owner;
+
+      // random kick chance
+      if (Math.random() < 0.01) {
+        this.ball.kick(
+          (Math.random() - 0.5) * 6,
+          (Math.random() - 0.5) * 6
+        );
+      }
+    }
+  }
+}
+
+// ---------------- USAGE ----------------
+
+// field size
+const match = new Match(900, 500);
 
 // players
-const playerA = new Player(100, 200, "blue");
-const playerB = new Player(700, 300, "red");
-
-// ball
-const ball = new Ball();
-
-// simple AI target
-let targetX = 800;
-let targetY = 300;
-
-// click to move target
-document.addEventListener("click", (e) => {
-  targetX = e.clientX;
-  targetY = e.clientY;
-});
-
-// possession check
-function checkPossession() {
-  const dA = Math.hypot(ball.x - playerA.x, ball.y - playerA.y);
-  const dB = Math.hypot(ball.x - playerB.x, ball.y - playerB.y);
-
-  if (dA < 20) ball.attach(playerA);
-  else if (dB < 20) ball.attach(playerB);
+for (let i = 0; i < 5; i++) {
+  match.addPlayer(new Player(100 + i * 20, 100, "blue"));
+  match.addPlayer(new Player(100 + i * 20, 400, "red"));
 }
 
-// kick ball randomly for demo
-setInterval(() => {
-  if (ball.owner) {
-    const vx = (Math.random() - 0.5) * 6;
-    const vy = (Math.random() - 0.5) * 6;
-    ball.kick(vx, vy);
-  }
-}, 2000);
+// game loop
+function loop() {
+  match.update();
 
-// =====================
-// GAME LOOP
-// =====================
-function gameLoop() {
-  requestAnimationFrame(gameLoop);
+  // call your renderer here:
+  // drawPlayers(match.players)
+  // drawBall(match.ball)
 
-  // AI movement
-  playerA.seek(targetX, targetY);
-  playerB.seek(ball.x, ball.y);
-
-  // update physics
-  playerA.update();
-  playerB.update();
-
-  ball.update();
-  checkPossession();
-
-  // OPTIONAL: log (remove later)
-  console.log(
-    "A:", playerA.x.toFixed(1), playerA.y.toFixed(1),
-    "| B:", playerB.x.toFixed(1), playerB.y.toFixed(1),
-    "| Ball:", ball.x.toFixed(1), ball.y.toFixed(1)
-  );
+  requestAnimationFrame(loop);
 }
 
-// start
-gameLoop();
+loop();
