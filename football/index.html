@@ -38,6 +38,10 @@ let blue = 0, red = 0;
 // ---------------- BALL ----------------
 class Ball {
   constructor() {
+    this.reset();
+  }
+
+  reset() {
     this.x = 450;
     this.y = 250;
     this.vx = 0;
@@ -84,42 +88,48 @@ for (let i = 0; i < 3; i++) {
 
 // ---------------- AI ----------------
 function ai(p) {
+
+  // if has ball → go toward goal
+  if (ball.owner === p) {
+    const goalX = p.team === "blue" ? 900 : 0;
+    const goalY = 250;
+
+    p.move(goalX, goalY);
+
+    if (Math.random() < 0.02) {
+      ball.owner = null;
+      ball.vx = (p.team === "blue" ? 6 : -6);
+      ball.vy = (Math.random() - 0.5) * 3;
+    }
+    return;
+  }
+
+  // otherwise chase ball
   p.move(ball.x, ball.y);
 
   let dx = p.x - ball.x;
   let dy = p.y - ball.y;
 
-  if (Math.hypot(dx, dy) < 15) {
+  if (Math.hypot(dx, dy) < 15 && !ball.owner) {
     ball.owner = p;
-  }
-
-  if (ball.owner === p && Math.random() < 0.01) {
-    ball.owner = null;
-    ball.vx = (p.team === "blue" ? 5 : -5);
-    ball.vy = (Math.random() - 0.5) * 3;
   }
 }
 
 // ---------------- GOAL ----------------
 function goalCheck() {
   if (ball.x < 10) {
-    red++;
+    blue++;
     reset();
   }
 
   if (ball.x > 890) {
-    blue++;
+    red++;
     reset();
   }
 }
 
 function reset() {
-  ball.x = 450;
-  ball.y = 250;
-  ball.vx = 0;
-  ball.vy = 0;
-  ball.owner = null;
-
+  ball.reset();
   document.getElementById("b").innerText = blue;
   document.getElementById("r").innerText = red;
 }
@@ -132,8 +142,8 @@ function draw() {
   ctx.fillStyle = "white";
   ctx.fillRect(449,0,2,500);
 
-  ctx.fillStyle = "white";
   ctx.beginPath();
+  ctx.fillStyle = "white";
   ctx.arc(ball.x, ball.y, 5, 0, Math.PI*2);
   ctx.fill();
 
