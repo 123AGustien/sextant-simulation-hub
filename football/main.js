@@ -45,7 +45,7 @@ const Engine = {
 
   init() {
     World.init433();
-    Game.running = false; // safe reset state (prevents ghost loop)
+    // IMPORTANT: do NOT touch Game.running here
   },
 
   update() {
@@ -81,7 +81,7 @@ const Engine = {
 };
 
 // =====================
-// LOOP (CONTROLLED RUNTIME)
+// LOOP
 // =====================
 function loop() {
   if (!Game.running) return;
@@ -93,14 +93,15 @@ function loop() {
 }
 
 // =====================
-// BOOTSTRAP (SAFE INIT)
+// BOOT
 // =====================
 window.onload = () => {
-  Engine.init();
+  Engine.init();     // setup only
+  Game.running = false;
 };
 
 // =====================
-// GLOBAL EXPORT (IMPORTANT)
+// GLOBAL EXPORT (CRITICAL FOR BUTTONS)
 // =====================
 window.Game = Game;
 window.Engine = Engine;
