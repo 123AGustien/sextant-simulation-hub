@@ -10,7 +10,7 @@ const Game = {
   running: false,
 
   start() {
-    if (this.running) return; // prevent double start
+    if (this.running) return;
 
     this.running = true;
     Engine.init();
@@ -45,6 +45,7 @@ const Engine = {
 
   init() {
     World.init433();
+    Game.running = false; // safe reset state (prevents ghost loop)
   },
 
   update() {
@@ -80,7 +81,7 @@ const Engine = {
 };
 
 // =====================
-// LOOP (SINGLE CONTROLLED LOOP)
+// LOOP (CONTROLLED RUNTIME)
 // =====================
 function loop() {
   if (!Game.running) return;
@@ -92,8 +93,14 @@ function loop() {
 }
 
 // =====================
-// AUTO INIT (SAFE)
+// BOOTSTRAP (SAFE INIT)
 // =====================
 window.onload = () => {
   Engine.init();
 };
+
+// =====================
+// GLOBAL EXPORT (IMPORTANT)
+// =====================
+window.Game = Game;
+window.Engine = Engine;
