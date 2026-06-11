@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Triangle Football Lab</title>
+  <style>
+    body {
+      margin: 0;
+      background: #0b3d0b;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+    }
+    canvas {
+      background: #1e7f1e;
+      display: block;
+      margin: auto;
+      border: 3px solid white;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Triangle Football Lab (4-3-3 Engine)</h1>
+
+<div>
+  Blue: <span id="b">0</span> |
+  Red: <span id="r">0</span>
+</div>
+
+<button onclick="init()">Start</button>
+<button onclick="reset()">Reset</button>
+
+<canvas id="c" width="900" height="500"></canvas>
+
+<script src="./main.js"></script>
+
+</body>
+</html>
