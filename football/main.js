@@ -1,5 +1,5 @@
 // ===============================
-// SIMPLE FOOTBALL PHYSICS ENGINE
+// SIMPLE FOOTBALL PHYSICS ENGINE (TACTICAL VERSION)
 // ===============================
 
 const canvas = document.getElementById("game");
@@ -23,7 +23,6 @@ class Player {
     this.ay = 0;
 
     this.maxSpeed = 2.8;
-    this.maxForce = 0.2;
     this.radius = 10;
   }
 
@@ -48,7 +47,7 @@ class Player {
     this.vx += this.ax;
     this.vy += this.ay;
 
-    // friction (grass resistance)
+    // friction (grass)
     this.vx *= 0.92;
     this.vy *= 0.92;
 
@@ -79,8 +78,8 @@ class Player {
 // ===============================
 class Ball {
   constructor() {
-    this.reset();
     this.radius = 6;
+    this.reset();
   }
 
   reset() {
@@ -115,7 +114,7 @@ class Ball {
     this.vx *= 0.985;
     this.vy *= 0.985;
 
-    // wall bounce
+    // bounce walls
     if (this.x < 0 || this.x > canvas.width) this.vx *= -0.8;
     if (this.y < 0 || this.y > canvas.height) this.vy *= -0.8;
 
@@ -135,16 +134,10 @@ class Ball {
 // GAME STATE
 // ===============================
 const ball = new Ball();
-
 const players = [];
 
-// Blue team
 for (let i = 0; i < 5; i++) {
   players.push(new Player(200, 100 + i * 60, "blue"));
-}
-
-// Red team
-for (let i = 0; i < 5; i++) {
   players.push(new Player(700, 100 + i * 60, "red"));
 }
 
@@ -152,35 +145,56 @@ let scoreBlue = 0;
 let scoreRed = 0;
 
 // ===============================
-// SIMPLE AI
+// TACTICS SYSTEM (NEW)
 // ===============================
-function ai(player) {
-  if (ball.owner && ball.owner.team === player.team) {
-    // support teammate
-    player.seek(canvas.width / 2, canvas.height / 2);
-  } else {
-    // chase ball
-    player.seek(ball.x, ball.y);
-  }
+function applyTactics(players, ball) {
+  const goalBlue = { x: canvas.width, y: canvas.height / 2 };
+  const goalRed = { x: 0, y: canvas.height / 2 };
 
-  // collision with ball (possession)
-  let dx = ball.x - player.x;
-  let dy = ball.y - player.y;
-  let dist = Math.hypot(dx, dy);
+  for (let p of players) {
 
-  if (dist < 14 && !ball.owner) {
-    ball.attach(player);
-  }
+    let isBlue = p.team === "blue";
+    let goal = isBlue ? goalBlue : goalRed;
 
-  // shoot logic
-  if (ball.owner === player && Math.random() < 0.01) {
-    let goalX = player.team === "blue" ? canvas.width : 0;
-    let goalY = canvas.height / 2;
+    let dxBall = ball.x - p.x;
+    let dyBall = ball.y - p.y;
+    let distBall = Math.hypot(dxBall, dyBall);
 
-    let vx = (goalX - player.x) * 0.02;
-    let vy = (goalY - player.y) * 0.02;
+    // ======================
+    // POSSESSION
+    // ======================
+    if (ball.owner === p) {
 
-    ball.kick(vx, vy);
+      // occasional shot
+      if (Math.random() < 0.02) {
+        let vx = (goal.x - p.x) * 0.03;
+        let vy = (goal.y - p.y) * 0.03;
+        ball.kick(vx, vy);
+        continue;
+      }
+
+      p.seek(goal.x, goal.y);
+    }
+
+    // ======================
+    // OFF BALL
+    // ======================
+    else {
+
+      if (distBall < 160) {
+        p.seek(ball.x, ball.y);
+      } else {
+        let baseX = p.team === "blue" ? 250 : 650;
+        let baseY = 100 + (p.x % 200);
+
+        p.seek(baseX, baseY);
+      }
+
+      // pickup ball
+      if (distBall < 14 && !ball.owner) {
+        ball.attach(p);
+      }
+    }
   }
 }
 
@@ -200,13 +214,13 @@ function checkGoal() {
 }
 
 // ===============================
-// RENDER FIELD
+// FIELD DRAW
 // ===============================
 function drawField() {
   ctx.fillStyle = "#0b6623";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = "#ffffff";
+  ctx.strokeStyle = "#fff";
   ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
 
   ctx.beginPath();
@@ -224,18 +238,19 @@ function drawField() {
 }
 
 // ===============================
-// MAIN LOOP
+// MAIN LOOP (IMPORTANT ORDER)
 // ===============================
 function update() {
   drawField();
 
   ball.update();
 
-  players.forEach(p => {
-    ai(p);
+  applyTactics(players, ball);
+
+  for (let p of players) {
     p.update();
     p.draw();
-  });
+  }
 
   ball.draw();
 
