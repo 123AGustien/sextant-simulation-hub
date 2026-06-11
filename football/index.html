@@ -1,248 +1,339 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Triangle Football Lab v2</title>
+  <title>AI Football Engine v3 - Professional Simulation</title>
 </head>
 
 <body style="margin:0; background:#0b0f0d; color:white; font-family:Arial; text-align:center;">
 
-<h2>⚽ Triangle Football Lab (Clean 22 Engine)</h2>
+<h2>⚽ AI Football Engine v3 (Professional Simulation Core)</h2>
 
 <div>
   Blue: <b id="blue">0</b> | Red: <b id="red">0</b>
 </div>
 
-<button onclick="startGame()">Start</button>
-<button onclick="resetGame()">Reset</button>
+<button onclick="start()">Start</button>
+<button onclick="reset()">Reset</button>
 
 <canvas id="c" width="900" height="500" style="display:block; margin:10px auto;"></canvas>
 
 <script>
 
-// =====================
-// CANVAS
-// =====================
+// ======================
+// CORE STATE
+// ======================
+const Game = { blue:0, red:0 };
+
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-// =====================
-// FORMATION TEMPLATE (4-3-3)
-// =====================
+// ======================
+// BALL
+// ======================
+const Ball = {
+  x:450, y:250,
+  vx:0, vy:0,
+  owner:null,
+
+  update(){
+    if(this.owner){
+      this.x = this.owner.x;
+      this.y = this.owner.y;
+    } else {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.vx *= 0.94;
+      this.vy *= 0.94;
+    }
+  },
+
+  reset(){
+    this.x=450; this.y=250;
+    this.vx=0; this.vy=0;
+    this.owner=null;
+  }
+};
+
+// ======================
+// FORMATIONS (4-3-3 + GK)
+// ======================
 const FORMATION = {
   blue: [
-    {x:100,y:80},{x:100,y:160},{x:100,y:240},{x:100,y:320}, // 4 DEF
-    {x:220,y:120},{x:220,y:240},{x:220,y:360},              // 3 MID
-    {x:340,y:100},{x:340,y:180},{x:340,y:260},{x:340,y:340} // 4 ATT
+    {x:60,y:250,role:"gk"},
+
+    {x:150,y:120,role:"def"},
+    {x:150,y:200,role:"def"},
+    {x:150,y:300,role:"def"},
+    {x:150,y:380,role:"def"},
+
+    {x:300,y:150,role:"mid"},
+    {x:300,y:250,role:"mid"},
+    {x:300,y:350,role:"mid"},
+
+    {x:420,y:150,role:"att"},
+    {x:420,y:250,role:"att"},
+    {x:420,y:350,role:"att"}
   ],
+
   red: [
-    {x:800,y:80},{x:800,y:160},{x:800,y:240},{x:800,y:320},
-    {x:680,y:120},{x:680,y:240},{x:680,y:360},
-    {x:560,y:100},{x:560,y:180},{x:560,y:260},{x:560,y:340}
+    {x:840,y:250,role:"gk"},
+
+    {x:750,y:120,role:"def"},
+    {x:750,y:200,role:"def"},
+    {x:750,y:300,role:"def"},
+    {x:750,y:380,role:"def"},
+
+    {x:600,y:150,role:"mid"},
+    {x:600,y:250,role:"mid"},
+    {x:600,y:350,role:"mid"},
+
+    {x:480,y:150,role:"att"},
+    {x:480,y:250,role:"att"},
+    {x:480,y:350,role:"att"}
   ]
 };
 
-// =====================
-// WORLD
-// =====================
-const World = {
+// ======================
+// PLAYERS
+// ======================
+const Players = [];
 
-  players: [],
+function init(){
+  Players.length = 0;
 
-  ball: {
-    x:450,
-    y:250,
-    vx:0,
-    vy:0,
-    owner:null,
+  ["blue","red"].forEach(team=>{
+    FORMATION[team].forEach(p=>{
+      Players.push({
+        x:p.x,
+        y:p.y,
+        homeX:p.x,
+        homeY:p.y,
+        team,
+        role:p.role,
+        speed:1 + Math.random()*0.4
+      });
+    });
+  });
+}
 
-    update(){
-      if(this.owner){
-        this.x = this.owner.x;
-        this.y = this.owner.y;
-      } else {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.98;
-        this.vy *= 0.98;
+// ======================
+// UTILS
+// ======================
+function dist(a,b){
+  return Math.hypot(a.x-b.x,a.y-b.y);
+}
+
+// ======================
+// PASSING LOGIC
+// ======================
+function findPass(p){
+
+  let best=null;
+  let bestScore=-999;
+
+  Players.forEach(t=>{
+    if(t.team!==p.team) return;
+
+    let score = 0;
+
+    // prefer forward passes
+    if(p.team==="blue" && t.x > p.x) score += 5;
+    if(p.team==="red" && t.x < p.x) score += 5;
+
+    // distance penalty
+    score -= Math.abs(t.x-p.x)*0.01;
+
+    if(score > bestScore && t!==p){
+      bestScore = score;
+      best = t;
+    }
+  });
+
+  return best;
+}
+
+// ======================
+// SHOOTING SYSTEM
+// ======================
+function shoot(p){
+
+  const goalX = p.team==="blue" ? 900 : 0;
+  const power = 4;
+
+  Ball.owner = null;
+  Ball.vx = (goalX - p.x) * 0.03;
+  Ball.vy = (Math.random()-0.5) * power;
+}
+
+// ======================
+// AI ENGINE
+// ======================
+function ai(p){
+
+  const dx = Ball.x - p.x;
+  const dy = Ball.y - p.y;
+  const d = Math.hypot(dx,dy);
+
+  let targetX = p.homeX;
+  let targetY = p.homeY;
+
+  // ======================
+  // ROLE BEHAVIOR
+  // ======================
+
+  if(p.role==="gk"){
+    targetX = p.homeX;
+    targetY = Ball.y;
+  }
+
+  if(p.role==="def"){
+    targetX = p.homeX + (p.team==="blue" ? (Ball.x-450)*0.05 : (Ball.x-450)*0.05);
+  }
+
+  if(p.role==="mid"){
+    targetX = Ball.x;
+    targetY = Ball.y;
+  }
+
+  if(p.role==="att"){
+    targetX = p.team==="blue" ? Ball.x+60 : Ball.x-60;
+    targetY = Ball.y;
+  }
+
+  // movement to tactical shape
+  p.x += (targetX - p.x) * 0.03 * p.speed;
+  p.y += (targetY - p.y) * 0.03 * p.speed;
+
+  // ======================
+  // INTERCEPTION
+  // ======================
+  if(Ball.owner && Ball.owner.team !== p.team && d < 18){
+    Ball.owner = p;
+  }
+
+  // ======================
+  // POSSESSION
+  // ======================
+  if(d < 14 && !Ball.owner){
+    Ball.owner = p;
+  }
+
+  // ======================
+  // PASS OR SHOOT
+  // ======================
+  if(Ball.owner === p){
+
+    // shoot condition
+    if(Math.abs(p.x - 900) < 120 || Math.abs(p.x - 0) < 120){
+      if(p.role==="att" && Math.random()<0.02){
+        shoot(p);
+        return;
       }
-    },
+    }
 
-    reset(){
-      this.x = 450;
-      this.y = 250;
-      this.vx = 0;
-      this.vy = 0;
-      this.owner = null;
+    // passing
+    if(Math.random() < 0.02){
+      const mate = findPass(p);
+      if(mate){
+        Ball.owner = null;
+        Ball.vx = (mate.x - p.x)*0.06;
+        Ball.vy = (mate.y - p.y)*0.06;
+      }
     }
   }
-};
+}
 
-// =====================
-// GAME STATE
-// =====================
-const Game = {
-  blue:0,
-  red:0,
+// ======================
+// UPDATE LOOP
+// ======================
+function update(){
 
-  goal(team){
-    if(team==="blue") Game.blue++;
-    if(team==="red") Game.red++;
+  Ball.update();
 
+  Players.forEach(ai);
+
+  // GOALS
+  if(Ball.x > 880){
+    Game.blue++;
     document.getElementById("blue").innerText = Game.blue;
+    Ball.reset();
+  }
+
+  if(Ball.x < 20){
+    Game.red++;
     document.getElementById("red").innerText = Game.red;
-
-    resetPositions();
+    Ball.reset();
   }
-};
-
-// =====================
-// INIT PLAYERS (22 CLEAN)
-// =====================
-function initPlayers(){
-  World.players = [];
-
-  FORMATION.blue.forEach(p=>{
-    World.players.push({
-      x:p.x,y:p.y,
-      team:"blue"
-    });
-  });
-
-  FORMATION.red.forEach(p=>{
-    World.players.push({
-      x:p.x,y:p.y,
-      team:"red"
-    });
-  });
 }
 
-// =====================
-// RESET POSITIONS
-// =====================
-function resetPositions(){
-  initPlayers();
-  World.ball.reset();
-}
+// ======================
+// RENDER
+// ======================
+function draw(){
 
-// =====================
-// PHYSICS
-// =====================
-const Physics = {
-
-  goalLock:false,
-
-  update(){
-
-    World.ball.update();
-
-    World.players.forEach(p=>{
-
-      const dx = p.x - World.ball.x;
-      const dy = p.y - World.ball.y;
-      const dist = Math.hypot(dx,dy);
-
-      if(dist < 14 && !World.ball.owner){
-        World.ball.owner = p;
-      }
-
-      if(World.ball.owner === p && dist > 25){
-        World.ball.owner = null;
-      }
-    });
-
-    if(!this.goalLock){
-
-      if(World.ball.x > 880){
-        this.goalLock = true;
-        Game.goal("blue");
-        setTimeout(()=>this.goalLock=false,500);
-      }
-
-      if(World.ball.x < 20){
-        this.goalLock = true;
-        Game.goal("red");
-        setTimeout(()=>this.goalLock=false,500);
-      }
-    }
-  }
-};
-
-// =====================
-// RENDER PITCH
-// =====================
-function drawPitch(){
-
-  ctx.fillStyle = "#145c2c";
+  ctx.fillStyle="#145c2c";
   ctx.fillRect(0,0,900,500);
 
-  ctx.strokeStyle = "white";
+  ctx.strokeStyle="white";
   ctx.beginPath();
   ctx.moveTo(450,0);
   ctx.lineTo(450,500);
   ctx.stroke();
 
-  ctx.beginPath();
-  ctx.arc(450,250,60,0,Math.PI*2);
-  ctx.stroke();
-}
-
-// =====================
-// DRAW
-// =====================
-function draw(){
-
-  drawPitch();
-
-  World.players.forEach(p=>{
-    ctx.fillStyle = p.team === "blue" ? "#4dd2ff" : "#ff4d4d";
+  // players
+  Players.forEach(p=>{
+    ctx.fillStyle = p.team==="blue" ? "#4dd2ff" : "#ff4d4d";
     ctx.beginPath();
-    ctx.arc(p.x,p.y,8,0,Math.PI*2);
+    ctx.arc(p.x,p.y,7,0,Math.PI*2);
     ctx.fill();
   });
 
+  // ball
   ctx.fillStyle="white";
   ctx.beginPath();
-  ctx.arc(World.ball.x,World.ball.y,6,0,Math.PI*2);
+  ctx.arc(Ball.x,Ball.y,6,0,Math.PI*2);
   ctx.fill();
 }
 
-// =====================
+// ======================
 // LOOP
-// =====================
+// ======================
 let running=false;
 
 function loop(){
   if(!running) return;
 
-  Physics.update();
+  update();
   draw();
 
   requestAnimationFrame(loop);
 }
 
-// =====================
+// ======================
 // CONTROLS
-// =====================
-function startGame(){
+// ======================
+function start(){
   if(running) return;
   running=true;
   loop();
 }
 
-function resetGame(){
+function reset(){
   Game.blue=0;
   Game.red=0;
 
   document.getElementById("blue").innerText=0;
   document.getElementById("red").innerText=0;
 
-  resetPositions();
+  Ball.reset();
+  init();
 }
 
-// =====================
-// START
-// =====================
-initPlayers();
+// ======================
+// BOOT
+// ======================
+init();
+draw();
 
 </script>
 
