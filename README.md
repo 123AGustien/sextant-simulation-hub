@@ -1,11 +1,37 @@
-# ⚽ Sextant Simulation Hub
+## ⚽ Sextant Simulation Hub – AI Football Engine
 
-A modular AI simulation platform designed for browser-based multi-agent systems, tactical football engines, and experimental AI environments.
+### 🎥 Live Match (Watch Link)
 
-This project is structured as a scalable simulation hub where each module operates independently but is accessible through a central entry point.
+Start the autonomous AI football simulation here:
+
+https://123agustien.github.io/sextant-simulation-hub/football/
 
 ---
 
-## 🧭 System Architecture
+### 📁 Repository (Source Code)
 
-The project follows a hub-and-module design:
+View and edit the simulation engine:
+
+https://github.com/123AGustien/sextant-simulation-hub/tree/main/football
+
+---
+
+### 🧠 System Overview
+
+- 22-player autonomous AI football simulation
+- Role-based tactical engine (DEF / MID / ATT / GK)
+- Real-time ball physics and passing system
+- Automated scoring and reset logic
+- Browser-based Canvas execution (no installation required)
+
+---
+
+### 🏟️ Experience Mode
+
+- Stadium-style landing UI
+- Live match simulation start button
+- Fully browser-playable football engine
+
+
+
+⚽ 
