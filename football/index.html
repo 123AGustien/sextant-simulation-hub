@@ -1,53 +1,176 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Triangle Football Lab (4-3-3 Engine)</title>
-
-  <style>
-    body {
-      margin: 0;
-      background: #0b3d0b;
-      color: white;
-      font-family: Arial;
-      text-align: center;
-    }
-
-    canvas {
-      background: #1e7f1e;
-      display: block;
-      margin: auto;
-      border: 3px solid white;
-    }
-
-    button {
-      margin: 5px;
-      padding: 8px 14px;
-      cursor: pointer;
-    }
-  </style>
+  <title>Triangle Football Lab</title>
 </head>
 
-<body>
+<body style="margin:0; background:#111; color:white; font-family:Arial; text-align:center;">
 
-<h1>Triangle Football Lab (4-3-3 Engine)</h1>
+<h2>⚽ Triangle Football Lab (4-3-3 Engine)</h2>
 
 <div>
-  Blue: <span id="blueScore">0</span> |
-  Red: <span id="redScore">0</span>
+  Blue: <b id="blue">0</b> | Red: <b id="red">0</b>
 </div>
 
-<button onclick="Game.start()">Start</button>
-<button onclick="Game.reset()">Reset</button>
+<button onclick="startGame()">Start</button>
+<button onclick="resetGame()">Reset</button>
 
-<canvas id="pitch" width="900" height="500"></canvas>
+<canvas id="c" width="900" height="500" style="background:#222; display:block; margin:10px auto;"></canvas>
 
-<!-- ===================== -->
-<!-- ENGINE MODULES -->
-<!-- ===================== -->
-<script src="./02_players.js"></script>
-<script src="./03_physics.js"></script>
-<script src="./04_tactics.js"></script>
-<script src="./main.js"></script>
+<script>
+
+// =====================
+// WORLD
+// =====================
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+
+const World = {
+  players: [
+    {x:100,y:200}, {x:200,y:300}, {x:300,y:200}
+  ],
+  ball: {
+    x:450, y:250,
+    owner:null,
+
+    update() {
+      if (this.owner) {
+        this.x = this.owner.x;
+        this.y = this.owner.y;
+      }
+    },
+
+    attach(p) {
+      this.owner = p;
+    }
+  }
+};
+
+// =====================
+// GAME STATE
+// =====================
+const Game = {
+  blue:0,
+  red:0,
+
+  goal(team){
+    if(team==="blue") Game.blue++;
+    if(team==="red") Game.red++;
+
+    document.getElementById("blue").innerText = Game.blue;
+    document.getElementById("red").innerText = Game.red;
+
+    World.ball.x = 450;
+    World.ball.y = 250;
+    World.ball.owner = null;
+  }
+};
+
+// =====================
+// PHYSICS
+// =====================
+const Physics = {
+
+  goalLocked:false,
+
+  update(){
+
+    const ball = World.ball;
+
+    ball.update();
+
+    World.players.forEach(p=>{
+
+      const dx = p.x - ball.x;
+      const dy = p.y - ball.y;
+      const dist = Math.hypot(dx,dy);
+
+      // pickup
+      if(dist < 14 && !ball.owner){
+        ball.attach(p);
+      }
+
+      // release
+      if(ball.owner === p && dist > 25){
+        ball.owner = null;
+      }
+    });
+
+    // goals
+    if(!Physics.goalLocked){
+
+      if(ball.x > 880){
+        Physics.goalLocked = true;
+        Game.goal("blue");
+        setTimeout(()=>Physics.goalLocked=false,400);
+      }
+
+      if(ball.x < 20){
+        Physics.goalLocked = true;
+        Game.goal("red");
+        setTimeout(()=>Physics.goalLocked=false,400);
+      }
+    }
+  }
+};
+
+// =====================
+// RENDER
+// =====================
+function draw(){
+  ctx.clearRect(0,0,900,500);
+
+  // players
+  ctx.fillStyle="cyan";
+  World.players.forEach(p=>{
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,10,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // ball
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(World.ball.x,World.ball.y,6,0,Math.PI*2);
+  ctx.fill();
+}
+
+// =====================
+// LOOP CONTROL (IMPORTANT FIX)
+// =====================
+let running = false;
+
+function loop(){
+  if(!running) return;
+
+  Physics.update();
+  draw();
+
+  requestAnimationFrame(loop);
+}
+
+// =====================
+// CONTROLS
+// =====================
+function startGame(){
+  if(running) return;
+  running = true;
+  loop();
+}
+
+function resetGame(){
+  Game.blue = 0;
+  Game.red = 0;
+
+  document.getElementById("blue").innerText = 0;
+  document.getElementById("red").innerText = 0;
+
+  World.ball.x = 450;
+  World.ball.y = 250;
+  World.ball.owner = null;
+}
+
+</script>
 
 </body>
 </html>
