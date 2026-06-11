@@ -20,11 +20,14 @@
 <script>
 
 // =====================
-// WORLD
+// SAFE WORLD INIT
 // =====================
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
+// =====================
+// WORLD
+// =====================
 const World = {
   players: [
     {x:100,y:200}, {x:200,y:300}, {x:300,y:200}
@@ -42,6 +45,12 @@ const World = {
 
     attach(p) {
       this.owner = p;
+    },
+
+    reset() {
+      this.x = 450;
+      this.y = 250;
+      this.owner = null;
     }
   }
 };
@@ -60,14 +69,12 @@ const Game = {
     document.getElementById("blue").innerText = Game.blue;
     document.getElementById("red").innerText = Game.red;
 
-    World.ball.x = 450;
-    World.ball.y = 250;
-    World.ball.owner = null;
+    World.ball.reset();
   }
 };
 
 // =====================
-// PHYSICS
+// PHYSICS ENGINE
 // =====================
 const Physics = {
 
@@ -76,6 +83,7 @@ const Physics = {
   update(){
 
     const ball = World.ball;
+    if(!ball) return;
 
     ball.update();
 
@@ -90,13 +98,13 @@ const Physics = {
         ball.attach(p);
       }
 
-      // release
+      // release safety
       if(ball.owner === p && dist > 25){
         ball.owner = null;
       }
     });
 
-    // goals
+    // GOAL LOGIC (SAFE LOCK)
     if(!Physics.goalLocked){
 
       if(ball.x > 880){
@@ -115,14 +123,15 @@ const Physics = {
 };
 
 // =====================
-// RENDER
+// RENDER SYSTEM
 // =====================
 function draw(){
+
   ctx.clearRect(0,0,900,500);
 
   // players
-  ctx.fillStyle="cyan";
   World.players.forEach(p=>{
+    ctx.fillStyle="cyan";
     ctx.beginPath();
     ctx.arc(p.x,p.y,10,0,Math.PI*2);
     ctx.fill();
@@ -136,9 +145,10 @@ function draw(){
 }
 
 // =====================
-// LOOP CONTROL (IMPORTANT FIX)
+// GAME LOOP (STABLE)
 // =====================
 let running = false;
+let loopId = null;
 
 function loop(){
   if(!running) return;
@@ -146,28 +156,33 @@ function loop(){
   Physics.update();
   draw();
 
-  requestAnimationFrame(loop);
+  loopId = requestAnimationFrame(loop);
 }
 
 // =====================
 // CONTROLS
 // =====================
 function startGame(){
+
   if(running) return;
+
   running = true;
   loop();
+
+  console.log("⚽ Engine started");
 }
 
 function resetGame(){
+
   Game.blue = 0;
   Game.red = 0;
 
   document.getElementById("blue").innerText = 0;
   document.getElementById("red").innerText = 0;
 
-  World.ball.x = 450;
-  World.ball.y = 250;
-  World.ball.owner = null;
+  World.ball.reset();
+
+  console.log("🔄 Game reset");
 }
 
 </script>
