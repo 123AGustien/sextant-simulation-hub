@@ -18,38 +18,49 @@
       margin: auto;
       border: 3px solid white;
     }
-
-    button {
-      margin: 5px;
-      padding: 8px 14px;
-    }
   </style>
 </head>
 
 <body>
 
 <h1>Triangle Football Lab</h1>
+<div>Blue: <span id="b">0</span> | Red: <span id="r">0</span></div>
 
-<div>
-  Blue: <span id="blueScore">0</span> |
-  Red: <span id="redScore">0</span>
-</div>
-
-<button onclick="init()">Start</button>
-<button onclick="resetGame()">Reset</button>
-
-<canvas id="pitch" width="900" height="500"></canvas>
+<canvas id="c" width="900" height="500"></canvas>
 
 <script>
-// =====================
-// CORE SETUP
-// =====================
-const canvas = document.getElementById("pitch");
+
+const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-// =====================
-// PLAYER
-// =====================
+let blue = 0, red = 0;
+
+// ---------------- BALL ----------------
+class Ball {
+  constructor() {
+    this.x = 450;
+    this.y = 250;
+    this.vx = 0;
+    this.vy = 0;
+    this.owner = null;
+  }
+
+  update() {
+    if (this.owner) {
+      this.x = this.owner.x;
+      this.y = this.owner.y;
+      return;
+    }
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    this.vx *= 0.98;
+    this.vy *= 0.98;
+  }
+}
+
+// ---------------- PLAYER ----------------
 class Player {
   constructor(x, y, team) {
     this.x = x;
@@ -63,153 +74,88 @@ class Player {
   }
 }
 
-// =====================
-// BALL
-// =====================
-class Ball {
-  constructor() {
-    this.x = 450;
-    this.y = 250;
-    this.owner = null;
-  }
+const ball = new Ball();
 
-  attach(player) {
-    this.owner = player;
-  }
-
-  update() {
-    if (this.owner) {
-      this.x = this.owner.x;
-      this.y = this.owner.y;
-    }
-  }
+const players = [];
+for (let i = 0; i < 3; i++) {
+  players.push(new Player(200, 150 + i * 80, "blue"));
+  players.push(new Player(700, 150 + i * 80, "red"));
 }
 
-// =====================
-// GAME STATE
-// =====================
-let blueTeam = [];
-let redTeam = [];
-let ball;
+// ---------------- AI ----------------
+function ai(p) {
+  p.move(ball.x, ball.y);
 
-let blueScore = 0;
-let redScore = 0;
+  let dx = p.x - ball.x;
+  let dy = p.y - ball.y;
 
-// =====================
-// INIT GAME
-// =====================
-function init() {
-  blueTeam = [
-    new Player(200, 200, "blue"),
-    new Player(200, 250, "blue"),
-    new Player(200, 300, "blue")
-  ];
-
-  redTeam = [
-    new Player(700, 200, "red"),
-    new Player(700, 250, "red"),
-    new Player(700, 300, "red")
-  ];
-
-  ball = new Ball();
-  ball.attach(blueTeam[0]);
-
-  loop(); // 🔥 THIS WAS MISSING (CRITICAL FIX)
-}
-
-// =====================
-// AI
-// =====================
-function updateAI() {
-  blueTeam.forEach(p => p.move(ball.x, ball.y));
-  redTeam.forEach(p => p.move(ball.x, ball.y));
-}
-
-// =====================
-// COLLISION
-// =====================
-function checkPickup() {
-  [...blueTeam, ...redTeam].forEach(p => {
-    let dx = p.x - ball.x;
-    let dy = p.y - ball.y;
-
-    if (Math.hypot(dx, dy) < 14) {
-      ball.attach(p);
-    }
-  });
-}
-
-// =====================
-// GOALS
-// =====================
-function checkGoal() {
-  if (ball.x > 880) {
-    blueScore++;
-    document.getElementById("blueScore").innerText = blueScore;
-    init();
+  if (Math.hypot(dx, dy) < 15) {
+    ball.owner = p;
   }
 
-  if (ball.x < 20) {
-    redScore++;
-    document.getElementById("redScore").innerText = redScore;
-    init();
+  if (ball.owner === p && Math.random() < 0.01) {
+    ball.owner = null;
+    ball.vx = (p.team === "blue" ? 5 : -5);
+    ball.vy = (Math.random() - 0.5) * 3;
   }
 }
 
-// =====================
-// DRAW
-// =====================
+// ---------------- GOAL ----------------
+function goalCheck() {
+  if (ball.x < 10) {
+    red++;
+    reset();
+  }
+
+  if (ball.x > 890) {
+    blue++;
+    reset();
+  }
+}
+
+function reset() {
+  ball.x = 450;
+  ball.y = 250;
+  ball.vx = 0;
+  ball.vy = 0;
+  ball.owner = null;
+
+  document.getElementById("b").innerText = blue;
+  document.getElementById("r").innerText = red;
+}
+
+// ---------------- DRAW ----------------
 function draw() {
-  ctx.clearRect(0, 0, 900, 500);
-
   ctx.fillStyle = "#1e7f1e";
-  ctx.fillRect(0, 0, 900, 500);
+  ctx.fillRect(0,0,900,500);
+
+  ctx.fillStyle = "white";
+  ctx.fillRect(449,0,2,500);
 
   ctx.fillStyle = "white";
   ctx.beginPath();
-  ctx.arc(ball.x, ball.y, 5, 0, Math.PI * 2);
+  ctx.arc(ball.x, ball.y, 5, 0, Math.PI*2);
   ctx.fill();
 
-  blueTeam.forEach(p => {
-    ctx.fillStyle = "blue";
+  players.forEach(p => {
+    ctx.fillStyle = p.team === "blue" ? "cyan" : "red";
     ctx.beginPath();
-    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
-    ctx.fill();
-  });
-
-  redTeam.forEach(p => {
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, 10, 0, Math.PI*2);
     ctx.fill();
   });
 }
 
-// =====================
-// LOOP
-// =====================
+// ---------------- LOOP ----------------
 function loop() {
-  updateAI();
+  players.forEach(ai);
   ball.update();
-  checkPickup();
-  checkGoal();
+  goalCheck();
   draw();
 
   requestAnimationFrame(loop);
 }
 
-// =====================
-// RESET
-// =====================
-function resetGame() {
-  blueScore = 0;
-  redScore = 0;
-  document.getElementById("blueScore").innerText = 0;
-  document.getElementById("redScore").innerText = 0;
-  init();
-}
-
-window.onload = init;
+loop();
 
 </script>
 
