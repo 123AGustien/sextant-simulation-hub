@@ -3,23 +3,31 @@ const Tactics = {
   update() {
 
     const players = World.players;
+    const ball = World.ball;
 
     players.forEach((p, index) => {
 
       const isBlue = p.team === "blue";
-      const ball = World.ball;
 
       // =========================
-      // RED TEAM (PRESSING AI)
+      // RED TEAM (FIXED PRESSING AI)
       // =========================
       if (!isBlue) {
 
-        // closest pressure behavior (simple swarm but not chaotic)
         const dx = ball.x - p.x;
         const dy = ball.y - p.y;
 
-        p.move(ball.x + dx * 0.1, ball.y + dy * 0.1);
+        const dist = Math.hypot(dx, dy);
 
+        // spacing system (prevents collapse into ball)
+        const offsetX = (index % 3) * 15;
+        const offsetY = (index % 4) * 10;
+
+        // pressure with separation
+        const targetX = ball.x + offsetX - dx * 0.2;
+        const targetY = ball.y + offsetY - dy * 0.2;
+
+        p.move(targetX, targetY);
         return;
       }
 
@@ -30,43 +38,34 @@ const Tactics = {
       let targetX = p.x;
       let targetY = p.y;
 
-      // -------------------------
       // DEFENDERS (0–3)
-      // -------------------------
       if (index < 4) {
         targetX = 200;
         targetY = 120 + index * 80;
       }
 
-      // -------------------------
       // MIDFIELDERS (4–6)
-      // -------------------------
       else if (index < 7) {
         targetX = 400;
         targetY = 150 + (index - 4) * 100;
       }
 
-      // -------------------------
       // ATTACKERS (7–9)
-      // -------------------------
       else if (index < 10) {
         targetX = 650;
         targetY = 150 + (index - 7) * 100;
       }
 
-      // =========================
-      // BALL OVERRIDE LOGIC
-      // =========================
+      // BALL OVERRIDE
       if (ball.owner === p) {
         targetX = 850;
         targetY = 250;
       } else if (!ball.owner) {
-        // support play (not collapse formation)
-        const dx = ball.x - p.x;
-        const dy = ball.y - p.y;
+        const dx2 = ball.x - p.x;
+        const dy2 = ball.y - p.y;
 
-        targetX += dx * 0.15;
-        targetY += dy * 0.15;
+        targetX += dx2 * 0.15;
+        targetY += dy2 * 0.15;
       }
 
       p.move(targetX, targetY);
