@@ -1,14 +1,12 @@
-<!-- FORCE REBUILD 2026 -->
-
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Triangle Football Lab</title>
+  <title>Triangle Football Lab v2</title>
 </head>
 
-<body style="margin:0; background:#111; color:white; font-family:Arial; text-align:center;">
+<body style="margin:0; background:#0b0f0d; color:white; font-family:Arial; text-align:center;">
 
-<h2>⚽ Triangle Football Lab (4-3-3 Engine)</h2>
+<h2>⚽ Triangle Football Lab (Clean 22 Engine)</h2>
 
 <div>
   Blue: <b id="blue">0</b> | Red: <b id="red">0</b>
@@ -17,7 +15,7 @@
 <button onclick="startGame()">Start</button>
 <button onclick="resetGame()">Reset</button>
 
-<canvas id="c" width="900" height="500" style="background:#222; display:block; margin:10px auto;"></canvas>
+<canvas id="c" width="900" height="500" style="display:block; margin:10px auto;"></canvas>
 
 <script>
 
@@ -28,43 +26,27 @@ const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
 // =====================
-// WORLD (22 PLAYERS FIX)
+// FORMATION TEMPLATE (4-3-3)
+// =====================
+const FORMATION = {
+  blue: [
+    {x:100,y:80},{x:100,y:160},{x:100,y:240},{x:100,y:320}, // 4 DEF
+    {x:220,y:120},{x:220,y:240},{x:220,y:360},              // 3 MID
+    {x:340,y:100},{x:340,y:180},{x:340,y:260},{x:340,y:340} // 4 ATT
+  ],
+  red: [
+    {x:800,y:80},{x:800,y:160},{x:800,y:240},{x:800,y:320},
+    {x:680,y:120},{x:680,y:240},{x:680,y:360},
+    {x:560,y:100},{x:560,y:180},{x:560,y:260},{x:560,y:340}
+  ]
+};
+
+// =====================
+// WORLD
 // =====================
 const World = {
 
-  players: [
-
-    // 🔵 BLUE TEAM (11)
-    {x:100,y:80,team:"blue"},
-    {x:100,y:140,team:"blue"},
-    {x:100,y:200,team:"blue"},
-    {x:100,y:260,team:"blue"},
-    {x:100,y:320,team:"blue"},
-
-    {x:220,y:100,team:"blue"},
-    {x:220,y:200,team:"blue"},
-    {x:220,y:300,team:"blue"},
-
-    {x:340,y:150,team:"blue"},
-    {x:340,y:250,team:"blue"},
-    {x:340,y:350,team:"blue"},
-
-    // 🔴 RED TEAM (11)
-    {x:800,y:80,team:"red"},
-    {x:800,y:140,team:"red"},
-    {x:800,y:200,team:"red"},
-    {x:800,y:260,team:"red"},
-    {x:800,y:320,team:"red"},
-
-    {x:680,y:100,team:"red"},
-    {x:680,y:200,team:"red"},
-    {x:680,y:300,team:"red"},
-
-    {x:560,y:150,team:"red"},
-    {x:560,y:250,team:"red"},
-    {x:560,y:350,team:"red"}
-
-  ],
+  players: [],
 
   ball: {
     x:450,
@@ -73,29 +55,24 @@ const World = {
     vy:0,
     owner:null,
 
-    update() {
-      if (this.owner) {
+    update(){
+      if(this.owner){
         this.x = this.owner.x;
         this.y = this.owner.y;
       } else {
         this.x += this.vx;
         this.y += this.vy;
-
         this.vx *= 0.98;
         this.vy *= 0.98;
       }
     },
 
-    reset() {
+    reset(){
       this.x = 450;
       this.y = 250;
       this.vx = 0;
       this.vy = 0;
       this.owner = null;
-    },
-
-    attach(p) {
-      this.owner = p;
     }
   }
 };
@@ -108,83 +85,121 @@ const Game = {
   red:0,
 
   goal(team){
-
     if(team==="blue") Game.blue++;
     if(team==="red") Game.red++;
 
     document.getElementById("blue").innerText = Game.blue;
     document.getElementById("red").innerText = Game.red;
 
-    World.ball.reset();
+    resetPositions();
   }
 };
+
+// =====================
+// INIT PLAYERS (22 CLEAN)
+// =====================
+function initPlayers(){
+  World.players = [];
+
+  FORMATION.blue.forEach(p=>{
+    World.players.push({
+      x:p.x,y:p.y,
+      team:"blue"
+    });
+  });
+
+  FORMATION.red.forEach(p=>{
+    World.players.push({
+      x:p.x,y:p.y,
+      team:"red"
+    });
+  });
+}
+
+// =====================
+// RESET POSITIONS
+// =====================
+function resetPositions(){
+  initPlayers();
+  World.ball.reset();
+}
 
 // =====================
 // PHYSICS
 // =====================
 const Physics = {
 
-  goalLocked:false,
+  goalLock:false,
 
   update(){
 
-    const ball = World.ball;
+    World.ball.update();
 
-    ball.update();
-
-    // POSSESSION SYSTEM
     World.players.forEach(p=>{
 
-      const dx = p.x - ball.x;
-      const dy = p.y - ball.y;
+      const dx = p.x - World.ball.x;
+      const dy = p.y - World.ball.y;
       const dist = Math.hypot(dx,dy);
 
-      // pick up ball
-      if(dist < 14 && !ball.owner){
-        ball.attach(p);
+      if(dist < 14 && !World.ball.owner){
+        World.ball.owner = p;
       }
 
-      // release ball
-      if(ball.owner === p && dist > 25){
-        ball.owner = null;
+      if(World.ball.owner === p && dist > 25){
+        World.ball.owner = null;
       }
     });
 
-    // GOALS
-    if(!Physics.goalLocked){
+    if(!this.goalLock){
 
-      if(ball.x > 880){
-        Physics.goalLocked = true;
+      if(World.ball.x > 880){
+        this.goalLock = true;
         Game.goal("blue");
-        setTimeout(()=>Physics.goalLocked=false,400);
+        setTimeout(()=>this.goalLock=false,500);
       }
 
-      if(ball.x < 20){
-        Physics.goalLocked = true;
+      if(World.ball.x < 20){
+        this.goalLock = true;
         Game.goal("red");
-        setTimeout(()=>Physics.goalLocked=false,400);
+        setTimeout(()=>this.goalLock=false,500);
       }
     }
   }
 };
 
 // =====================
-// RENDER
+// RENDER PITCH
+// =====================
+function drawPitch(){
+
+  ctx.fillStyle = "#145c2c";
+  ctx.fillRect(0,0,900,500);
+
+  ctx.strokeStyle = "white";
+  ctx.beginPath();
+  ctx.moveTo(450,0);
+  ctx.lineTo(450,500);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(450,250,60,0,Math.PI*2);
+  ctx.stroke();
+}
+
+// =====================
+// DRAW
 // =====================
 function draw(){
 
-  ctx.clearRect(0,0,900,500);
+  drawPitch();
 
-  // players
   World.players.forEach(p=>{
-    ctx.fillStyle = p.team === "blue" ? "cyan" : "red";
-
+    ctx.fillStyle = p.team === "blue" ? "#4dd2ff" : "#ff4d4d";
     ctx.beginPath();
     ctx.arc(p.x,p.y,8,0,Math.PI*2);
     ctx.fill();
   });
 
-  // ball
   ctx.fillStyle="white";
   ctx.beginPath();
   ctx.arc(World.ball.x,World.ball.y,6,0,Math.PI*2);
@@ -194,10 +209,9 @@ function draw(){
 // =====================
 // LOOP
 // =====================
-let running = false;
+let running=false;
 
 function loop(){
-
   if(!running) return;
 
   Physics.update();
@@ -211,19 +225,24 @@ function loop(){
 // =====================
 function startGame(){
   if(running) return;
-  running = true;
+  running=true;
   loop();
 }
 
 function resetGame(){
-  Game.blue = 0;
-  Game.red = 0;
+  Game.blue=0;
+  Game.red=0;
 
-  document.getElementById("blue").innerText = 0;
-  document.getElementById("red").innerText = 0;
+  document.getElementById("blue").innerText=0;
+  document.getElementById("red").innerText=0;
 
-  World.ball.reset();
+  resetPositions();
 }
+
+// =====================
+// START
+// =====================
+initPlayers();
 
 </script>
 
