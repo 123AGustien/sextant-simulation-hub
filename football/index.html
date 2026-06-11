@@ -1,35 +1,121 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>AI Football Engine v3 - Professional Simulation</title>
+  <title>AI Football Stadium</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      background: #050a07;
+      color: white;
+      overflow: hidden;
+    }
+
+    /* =========================
+       STADIUM LANDING SCREEN
+    ========================== */
+    #menu {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #0f3d1f, #020503);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .title {
+      font-size: 42px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+
+    .sub {
+      margin-top: 10px;
+      opacity: 0.7;
+    }
+
+    .live {
+      margin-top: 20px;
+      color: red;
+      font-weight: bold;
+      letter-spacing: 3px;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0.3; }
+    }
+
+    button {
+      margin-top: 30px;
+      padding: 15px 30px;
+      font-size: 18px;
+      border: none;
+      cursor: pointer;
+      background: #1db954;
+      color: white;
+      border-radius: 8px;
+    }
+
+    button:hover {
+      background: #17a44a;
+    }
+
+    /* =========================
+       CANVAS STADIUM
+    ========================== */
+    canvas {
+      display: block;
+      margin: auto;
+      background: #145c2c;
+    }
+
+    #hud {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 5;
+      font-size: 18px;
+    }
+  </style>
 </head>
 
-<body style="margin:0; background:#0b0f0d; color:white; font-family:Arial; text-align:center;">
+<body>
 
-<h2>⚽ AI Football Engine v3 (Professional Simulation Core)</h2>
+<!-- =========================
+     STADIUM MENU
+========================== -->
+<div id="menu">
+  <div class="title">⚽ AI FOOTBALL STADIUM</div>
+  <div class="live">● LIVE SIMULATION</div>
+  <div class="sub">22 Player Autonomous Match Engine</div>
+  <button onclick="startMatch()">START MATCH</button>
+</div>
 
-<div>
+<!-- HUD -->
+<div id="hud">
   Blue: <b id="blue">0</b> | Red: <b id="red">0</b>
 </div>
 
-<button onclick="start()">Start</button>
-<button onclick="reset()">Reset</button>
-
-<canvas id="c" width="900" height="500" style="display:block; margin:10px auto;"></canvas>
+<canvas id="c" width="900" height="500"></canvas>
 
 <script>
 
-// ======================
-// CORE STATE
-// ======================
+// =========================
+// GAME STATE
+// =========================
 const Game = { blue:0, red:0 };
 
 const canvas = document.getElementById("c");
 const ctx = canvas.getContext("2d");
 
-// ======================
+// =========================
 // BALL
-// ======================
+// =========================
 const Ball = {
   x:450, y:250,
   vx:0, vy:0,
@@ -42,8 +128,8 @@ const Ball = {
     } else {
       this.x += this.vx;
       this.y += this.vy;
-      this.vx *= 0.94;
-      this.vy *= 0.94;
+      this.vx *= 0.95;
+      this.vy *= 0.95;
     }
   },
 
@@ -54,223 +140,104 @@ const Ball = {
   }
 };
 
-// ======================
-// FORMATIONS (4-3-3 + GK)
-// ======================
-const FORMATION = {
-  blue: [
-    {x:60,y:250,role:"gk"},
-
-    {x:150,y:120,role:"def"},
-    {x:150,y:200,role:"def"},
-    {x:150,y:300,role:"def"},
-    {x:150,y:380,role:"def"},
-
-    {x:300,y:150,role:"mid"},
-    {x:300,y:250,role:"mid"},
-    {x:300,y:350,role:"mid"},
-
-    {x:420,y:150,role:"att"},
-    {x:420,y:250,role:"att"},
-    {x:420,y:350,role:"att"}
-  ],
-
-  red: [
-    {x:840,y:250,role:"gk"},
-
-    {x:750,y:120,role:"def"},
-    {x:750,y:200,role:"def"},
-    {x:750,y:300,role:"def"},
-    {x:750,y:380,role:"def"},
-
-    {x:600,y:150,role:"mid"},
-    {x:600,y:250,role:"mid"},
-    {x:600,y:350,role:"mid"},
-
-    {x:480,y:150,role:"att"},
-    {x:480,y:250,role:"att"},
-    {x:480,y:350,role:"att"}
-  ]
-};
-
-// ======================
-// PLAYERS
-// ======================
+// =========================
+// PLAYERS (22 AI)
+// =========================
 const Players = [];
 
 function init(){
+
   Players.length = 0;
 
-  ["blue","red"].forEach(team=>{
-    FORMATION[team].forEach(p=>{
-      Players.push({
-        x:p.x,
-        y:p.y,
-        homeX:p.x,
-        homeY:p.y,
-        team,
-        role:p.role,
-        speed:1 + Math.random()*0.4
-      });
+  // BLUE TEAM
+  for(let i=0;i<11;i++){
+    Players.push({
+      x:100,
+      y:50+i*40,
+      team:"blue",
+      role: i<4?"def":i<7?"mid":"att",
+      speed:1+Math.random()*0.4
     });
-  });
+  }
+
+  // RED TEAM
+  for(let i=0;i<11;i++){
+    Players.push({
+      x:800,
+      y:50+i*40,
+      team:"red",
+      role: i<4?"def":i<7?"mid":"att",
+      speed:1+Math.random()*0.4
+    });
+  }
 }
 
-// ======================
-// UTILS
-// ======================
-function dist(a,b){
-  return Math.hypot(a.x-b.x,a.y-b.y);
-}
-
-// ======================
-// PASSING LOGIC
-// ======================
-function findPass(p){
-
-  let best=null;
-  let bestScore=-999;
-
-  Players.forEach(t=>{
-    if(t.team!==p.team) return;
-
-    let score = 0;
-
-    // prefer forward passes
-    if(p.team==="blue" && t.x > p.x) score += 5;
-    if(p.team==="red" && t.x < p.x) score += 5;
-
-    // distance penalty
-    score -= Math.abs(t.x-p.x)*0.01;
-
-    if(score > bestScore && t!==p){
-      bestScore = score;
-      best = t;
-    }
-  });
-
-  return best;
-}
-
-// ======================
-// SHOOTING SYSTEM
-// ======================
-function shoot(p){
-
-  const goalX = p.team==="blue" ? 900 : 0;
-  const power = 4;
-
-  Ball.owner = null;
-  Ball.vx = (goalX - p.x) * 0.03;
-  Ball.vy = (Math.random()-0.5) * power;
-}
-
-// ======================
-// AI ENGINE
-// ======================
+// =========================
+// AI LOGIC
+// =========================
 function ai(p){
 
   const dx = Ball.x - p.x;
   const dy = Ball.y - p.y;
   const d = Math.hypot(dx,dy);
 
-  let targetX = p.homeX;
-  let targetY = p.homeY;
+  let tx = Ball.x;
+  let ty = Ball.y;
 
-  // ======================
-  // ROLE BEHAVIOR
-  // ======================
-
-  if(p.role==="gk"){
-    targetX = p.homeX;
-    targetY = Ball.y;
-  }
-
+  // role logic
   if(p.role==="def"){
-    targetX = p.homeX + (p.team==="blue" ? (Ball.x-450)*0.05 : (Ball.x-450)*0.05);
-  }
-
-  if(p.role==="mid"){
-    targetX = Ball.x;
-    targetY = Ball.y;
+    tx = p.team==="blue" ? Math.min(Ball.x-80, p.x) : Math.max(Ball.x+80, p.x);
   }
 
   if(p.role==="att"){
-    targetX = p.team==="blue" ? Ball.x+60 : Ball.x-60;
-    targetY = Ball.y;
+    tx = p.team==="blue" ? Ball.x+40 : Ball.x-40;
   }
 
-  // movement to tactical shape
-  p.x += (targetX - p.x) * 0.03 * p.speed;
-  p.y += (targetY - p.y) * 0.03 * p.speed;
+  p.x += (tx - p.x)*0.03*p.speed;
+  p.y += (ty - p.y)*0.03*p.speed;
 
-  // ======================
-  // INTERCEPTION
-  // ======================
-  if(Ball.owner && Ball.owner.team !== p.team && d < 18){
+  // possession
+  if(d<14 && !Ball.owner){
     Ball.owner = p;
   }
 
-  // ======================
-  // POSSESSION
-  // ======================
-  if(d < 14 && !Ball.owner){
-    Ball.owner = p;
-  }
-
-  // ======================
-  // PASS OR SHOOT
-  // ======================
-  if(Ball.owner === p){
-
-    // shoot condition
-    if(Math.abs(p.x - 900) < 120 || Math.abs(p.x - 0) < 120){
-      if(p.role==="att" && Math.random()<0.02){
-        shoot(p);
-        return;
-      }
-    }
-
-    // passing
-    if(Math.random() < 0.02){
-      const mate = findPass(p);
-      if(mate){
-        Ball.owner = null;
-        Ball.vx = (mate.x - p.x)*0.06;
-        Ball.vy = (mate.y - p.y)*0.06;
-      }
-    }
+  // release / pass
+  if(Ball.owner===p && Math.random()<0.01){
+    Ball.owner=null;
+    Ball.vx=(Math.random()-0.5)*4;
+    Ball.vy=(Math.random()-0.5)*4;
   }
 }
 
-// ======================
-// UPDATE LOOP
-// ======================
+// =========================
+// UPDATE
+// =========================
 function update(){
 
   Ball.update();
-
   Players.forEach(ai);
 
-  // GOALS
-  if(Ball.x > 880){
+  if(Ball.x>880){
     Game.blue++;
-    document.getElementById("blue").innerText = Game.blue;
+    document.getElementById("blue").innerText=Game.blue;
     Ball.reset();
   }
 
-  if(Ball.x < 20){
+  if(Ball.x<20){
     Game.red++;
-    document.getElementById("red").innerText = Game.red;
+    document.getElementById("red").innerText=Game.red;
     Ball.reset();
   }
 }
 
-// ======================
+// =========================
 // RENDER
-// ======================
+// =========================
 function draw(){
 
+  ctx.clearRect(0,0,900,500);
+
+  // pitch
   ctx.fillStyle="#145c2c";
   ctx.fillRect(0,0,900,500);
 
@@ -295,45 +262,29 @@ function draw(){
   ctx.fill();
 }
 
-// ======================
+// =========================
 // LOOP
-// ======================
+// =========================
 let running=false;
 
 function loop(){
   if(!running) return;
-
   update();
   draw();
-
   requestAnimationFrame(loop);
 }
 
-// ======================
-// CONTROLS
-// ======================
-function start(){
-  if(running) return;
+// =========================
+// START MATCH (UI → GAME)
+// =========================
+function startMatch(){
+
+  document.getElementById("menu").style.display="none";
+
+  init();
   running=true;
   loop();
 }
-
-function reset(){
-  Game.blue=0;
-  Game.red=0;
-
-  document.getElementById("blue").innerText=0;
-  document.getElementById("red").innerText=0;
-
-  Ball.reset();
-  init();
-}
-
-// ======================
-// BOOT
-// ======================
-init();
-draw();
 
 </script>
 
