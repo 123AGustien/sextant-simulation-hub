@@ -1,14 +1,50 @@
 const Physics = {
-  update() {
-    World.ball.update();
 
+  update() {
+
+    const ball = World.ball;
+
+    // =====================
+    // BALL UPDATE
+    // =====================
+    ball.update();
+
+    // =====================
+    // POSSESSION LOGIC
+    // =====================
     World.players.forEach(p => {
-      if (Math.hypot(p.x - World.ball.x, p.y - World.ball.y) < 14) {
-        World.ball.attach(p);
+
+      const dx = p.x - ball.x;
+      const dy = p.y - ball.y;
+      const dist = Math.hypot(dx, dy);
+
+      // Only allow pickup if ball is free
+      if (dist < 14 && !ball.owner) {
+        ball.attach(p);
       }
     });
 
-    if (World.ball.x > 880) Game.goal("blue");
-    if (World.ball.x < 20) Game.goal("red");
-  }
+    // =====================
+    // GOAL CHECK (SAFE)
+    // =====================
+    if (ball.x > 880 && !Physics.goalLocked) {
+      Physics.goalLocked = true;
+      Game.goal("blue");
+      Physics.resetLock();
+    }
+
+    if (ball.x < 20 && !Physics.goalLocked) {
+      Physics.goalLocked = true;
+      Game.goal("red");
+      Physics.resetLock();
+    }
+  },
+
+  resetLock() {
+    setTimeout(() => {
+      Physics.goalLocked = false;
+    }, 300);
+  },
+
+  goalLocked: false
 };
