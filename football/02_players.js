@@ -5,31 +5,55 @@ const World = {
   init433() {
     this.players = [];
 
-    // 4 defenders
+    // =====================
+    // BLUE 4-3-3
+    // =====================
+
+    // 4 Defenders
     for (let i = 0; i < 4; i++) {
       this.players.push(new Player(200, 120 + i * 80, "blue"));
     }
 
-    // 3 midfielders
+    // 3 Midfielders
     for (let i = 0; i < 3; i++) {
       this.players.push(new Player(400, 150 + i * 100, "blue"));
     }
 
-    // 3 attackers
+    // 3 Attackers
     for (let i = 0; i < 3; i++) {
       this.players.push(new Player(650, 150 + i * 100, "blue"));
     }
 
-    // red mirror team
-    for (let i = 0; i < 10; i++) {
-      this.players.push(new Player(700, 100 + i * 35, "red"));
+    // =====================
+    // RED 4-3-3 (MIRROR)
+    // =====================
+
+    // 4 Defenders
+    for (let i = 0; i < 4; i++) {
+      this.players.push(new Player(700, 120 + i * 80, "red"));
     }
 
+    // 3 Midfielders
+    for (let i = 0; i < 3; i++) {
+      this.players.push(new Player(500, 150 + i * 100, "red"));
+    }
+
+    // 3 Attackers
+    for (let i = 0; i < 3; i++) {
+      this.players.push(new Player(300, 150 + i * 100, "red"));
+    }
+
+    // =====================
+    // BALL
+    // =====================
     this.ball = new Ball();
     this.ball.attach(this.players[0]);
   }
 };
 
+// =====================
+// PLAYER CLASS
+// =====================
 class Player {
   constructor(x, y, team) {
     this.x = x;
@@ -43,6 +67,9 @@ class Player {
   }
 }
 
+// =====================
+// BALL CLASS
+// =====================
 class Ball {
   constructor() {
     this.x = 450;
